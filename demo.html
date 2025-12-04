@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taobao Order Data Extractor Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .export-buttons {
+            margin: 20px 0;
+        }
+        .export-buttons button {
+            margin-right: 10px;
+            background-color: #28a745;
+        }
+        .export-buttons button:hover {
+            background-color: #1e7e34;
+        }
+        .search-results {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Taobao Order Data Extractor Demo</h1>
+    
+    <div class="container">
+        <h2>Instructions</h2>
+        <p>This demo shows how to extract and filter order data from Taobao's "已买到的宝贝" (Items I've Bought) page.</p>
+        <ol>
+            <li>Open the Taobao order page in your browser</li>
+            <li>Open the browser's Developer Tools (F12)</li>
+            <li>Go to the Console tab</li>
+            <li>Copy and paste the JavaScript code from <code>order_extractor.js</code></li>
+            <li>Use the extractor functions to analyze your order data</li>
+        </ol>
+    </div>
+
+    <div class="container">
+        <h2>Quick Test</h2>
+        <p>If you have the Taobao order page open, you can test the extractor here:</p>
+        <button onclick="testExtractor()">Test Order Extractor</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>Example Usage</h2>
+        <div class="controls">
+            <div class="control-group">
+                <label for="status-filter">Filter by Status:</label>
+                <select id="status-filter">
+                    <option value="">All Statuses</option>
+                    <option value="WAIT_SELLER_SEND_GOODS">Wait Seller Send Goods</option>
+                    <option value="WAIT_BUYER_CONFIRM_GOODS">Wait Buyer Confirm</option>
+                    <option value="TRADE_FINISHED">Trade Finished</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="date-start">Start Date:</label>
+                <input type="date" id="date-start">
+            </div>
+            <div class="control-group">
+                <label for="date-end">End Date:</label>
+                <input type="date" id="date-end">
+            </div>
+            <div class="control-group">
+                <label for="seller-search">Seller Name:</label>
+                <input type="text" id="seller-search" placeholder="Enter seller name">
+            </div>
+            <div class="control-group">
+                <label for="min-price">Min Price:</label>
+                <input type="number" id="min-price" placeholder="0" step="0.01">
+            </div>
+            <div class="control-group">
+                <label for="max-price">Max Price:</label>
+                <input type="number" id="max-price" placeholder="1000" step="0.01">
+            </div>
+        </div>
+        
+        <button onclick="applyFilters()">Apply Filters</button>
+        <button onclick="clearFilters()">Clear Filters</button>
+    </div>
+
+    <div class="container">
+        <h2>Order Statistics</h2>
+        <div id="stats-container" class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-orders">-</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-amount">-</div>
+                <div class="stat-label">Total Amount</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avg-order">-</div>
+                <div class="stat-label">Average Order</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="pending-orders">-</div>
+                <div class="stat-label">Pending Orders</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Search Orders</h2>
+        <div class="control-group">
+            <label for="search-keyword">Search Keyword:</label>
+            <input type="text" id="search-keyword" placeholder="Enter product name, seller, etc.">
+            <button onclick="searchOrders()" style="margin-top: 10px;">Search</button>
+        </div>
+        <div id="search-results" class="search-results" style="display: none;"></div>
+    </div>
+
+    <div class="container">
+        <h2>Export Options</h2>
+        <div class="export-buttons">
+            <button onclick="exportToCSV()">Export to CSV</button>
+            <button onclick="downloadCSV()">Download CSV</button>
+            <button onclick="showOrdersTable()">Show Orders Table</button>
+        </div>
+        <div id="export-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>Orders Display</h2>
+        <div id="orders-container"></div>
+    </div>
+
+    <script src="order_extractor.js"></script>
+    <script>
+        let extractor = null;
+        let currentOrders = [];
+
+        // Test the extractor
+        function testExtractor() {
+            const resultsDiv = document.getElementById('test-results');
+            
+            try {
+                // Check if we're on a Taobao page
+                if (window.location.href.includes('taobao.com') || window.location.href.includes('tmall.com')) {
+                    extractor = new TaobaoOrderExtractor();
+                    const orderData = extractor.extractOrderData();
+                    
+                    if (orderData) {
+                        resultsDiv.innerHTML = '<div class="success">✅ Order data extracted successfully! You can now use the extractor functions.</div>';
+                        updateStats();
+                        showOrdersTable();
+                    } else {
+                        resultsDiv.innerHTML = '<div class="error">❌ No order data found on this page. Make sure you are on the Taobao "已买到的宝贝" page.</div>';
+                    }
+                } else {
+                    resultsDiv.innerHTML = '<div class="error">❌ This demo needs to be run on a Taobao order page. Please navigate to your Taobao orders page first.</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            if (!extractor) return;
+            
+            const summary = extractor.getOrderSummary();
+            const pendingOrders = extractor.filterOrdersByStatus('WAIT_SELLER_SEND_GOODS');
+            
+            document.getElementById('total-orders').textContent = summary.totalOrders;
+            document.getElementById('total-amount').textContent = `¥${summary.totalAmount}`;
+            document.getElementById('avg-order').textContent = `¥${summary.averageOrderValue}`;
+            document.getElementById('pending-orders').textContent = pendingOrders.length;
+        }
+
+        // Apply filters
+        function applyFilters() {
+            if (!extractor) {
+                alert('Please test the extractor first');
+                return;
+            }
+
+            let filteredOrders = extractor.getMainOrders();
+
+            // Filter by status
+            const status = document.getElementById('status-filter').value;
+            if (status) {
+                filteredOrders = filteredOrders.filter(order => {
+                    if (order.extra && order.extra.tradeStatus) {
+                        return order.extra.tradeStatus === status;
+                    }
+                    if (order.statusInfo && order.statusInfo.text) {
+                        return order.statusInfo.text.includes(status);
+                    }
+                    return false;
+                });
+            }
+
+            // Filter by date range
+            const startDate = document.getElementById('date-start').value;
+            const endDate = document.getElementById('date-end').value;
+            if (startDate && endDate) {
+                filteredOrders = filteredOrders.filter(order => {
+                    if (order.orderInfo && order.orderInfo.createDay) {
+                        const orderDate = new Date(order.orderInfo.createDay);
+                        const start = new Date(startDate);
+                        const end = new Date(endDate);
+                        return orderDate >= start && orderDate <= end;
+                    }
+                    return false;
+                });
+            }
+
+            // Filter by seller
+            const sellerName = document.getElementById('seller-search').value;
+            if (sellerName) {
+                filteredOrders = filteredOrders.filter(order => {
+                    if (order.seller && order.seller.nick) {
+                        return order.seller.nick.toLowerCase().includes(sellerName.toLowerCase());
+                    }
+                    return false;
+                });
+            }
+
+            // Filter by price range
+            const minPrice = parseFloat(document.getElementById('min-price').value);
+            const maxPrice = parseFloat(document.getElementById('max-price').value);
+            if (!isNaN(minPrice) || !isNaN(maxPrice)) {
+                filteredOrders = filteredOrders.filter(order => {
+                    if (order.payInfo && order.payInfo.actualFee) {
+                        const price = parseFloat(order.payInfo.actualFee);
+                        if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+                            return price >= minPrice && price <= maxPrice;
+                        } else if (!isNaN(minPrice)) {
+                            return price >= minPrice;
+                        } else if (!isNaN(maxPrice)) {
+                            return price <= maxPrice;
+                        }
+                    }
+                    return false;
+                });
+            }
+
+            currentOrders = filteredOrders;
+            showOrdersTable(filteredOrders);
+            
+            // Update stats for filtered results
+            updateFilteredStats(filteredOrders);
+        }
+
+        // Update filtered statistics
+        function updateFilteredStats(orders) {
+            if (orders.length === 0) {
+                document.getElementById('total-orders').textContent = '0';
+                document.getElementById('total-amount').textContent = '¥0.00';
+                document.getElementById('avg-order').textContent = '¥0.00';
+                document.getElementById('pending-orders').textContent = '0';
+                return;
+            }
+
+            let totalAmount = 0;
+            let pendingCount = 0;
+
+            orders.forEach(order => {
+                if (order.payInfo && order.payInfo.actualFee) {
+                    totalAmount += parseFloat(order.payInfo.actualFee);
+                }
+                if (order.extra && order.extra.tradeStatus === 'WAIT_SELLER_SEND_GOODS') {
+                    pendingCount++;
+                }
+            });
+
+            document.getElementById('total-orders').textContent = orders.length;
+            document.getElementById('total-amount').textContent = `¥${totalAmount.toFixed(2)}`;
+            document.getElementById('avg-order').textContent = `¥${(totalAmount / orders.length).toFixed(2)}`;
+            document.getElementById('pending-orders').textContent = pendingCount;
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('status-filter').value = '';
+            document.getElementById('date-start').value = '';
+            document.getElementById('date-end').value = '';
+            document.getElementById('seller-search').value = '';
+            document.getElementById('min-price').value = '';
+            document.getElementById('max-price').value = '';
+            
+            currentOrders = extractor ? extractor.getMainOrders() : [];
+            showOrdersTable();
+            updateStats();
+        }
+
+        // Search orders
+        function searchOrders() {
+            if (!extractor) {
+                alert('Please test the extractor first');
+                return;
+            }
+
+            const keyword = document.getElementById('search-keyword').value;
+            if (!keyword.trim()) {
+                alert('Please enter a search keyword');
+                return;
+            }
+
+            const searchResults = extractor.searchOrders(keyword);
+            const resultsDiv = document.getElementById('search-results');
+            
+            if (searchResults.length > 0) {
+                resultsDiv.innerHTML = `
+                    <h3>Search Results for "${keyword}" (${searchResults.length} orders found)</h3>
+                    <p>Showing first 5 results:</p>
+                    <ul>
+                        ${searchResults.slice(0, 5).map(order => `
+                            <li><strong>Order ${order.id}</strong> - ${order.seller?.nick || 'Unknown'} - ¥${order.payInfo?.actualFee || 'N/A'}</li>
+                        `).join('')}
+                    </ul>
+                `;
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.innerHTML = `<p>No orders found matching "${keyword}"</p>`;
+                resultsDiv.style.display = 'block';
+            }
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            if (!extractor) {
+                alert('Please test the extractor first');
+                return;
+            }
+
+            const orders = currentOrders.length > 0 ? currentOrders : extractor.getMainOrders();
+            const csvData = extractor.exportToCSV(orders);
+            
+            const resultsDiv = document.getElementById('export-results');
+            resultsDiv.innerHTML = `
+                <div class="success">✅ CSV data generated successfully!</div>
+                <textarea style="width: 100%; height: 200px; margin-top: 10px;" readonly>${csvData}</textarea>
+            `;
+        }
+
+        // Download CSV
+        function downloadCSV() {
+            if (!extractor) {
+                alert('Please test the extractor first');
+                return;
+            }
+
+            const orders = currentOrders.length > 0 ? currentOrders : extractor.getMainOrders();
+            const csvData = extractor.exportToCSV(orders);
+            
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `taobao_orders_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Show orders table
+        function showOrdersTable(orders = null) {
+            if (!extractor) {
+                alert('Please test the extractor first');
+                return;
+            }
+
+            const container = document.getElementById('orders-container');
+            extractor.displayOrdersTable(orders, container);
+        }
+
+        // Set default dates (last 30 days)
+        window.onload = function() {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            document.getElementById('date-end').value = today.toISOString().split('T')[0];
+            document.getElementById('date-start').value = thirtyDaysAgo.toISOString().split('T')[0];
+        };
+    </script>
+</body>
+</html>

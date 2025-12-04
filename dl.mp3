@@ -2,12 +2,13 @@
 
 git pull
 mkdir -p ${PWD}/mp3
-DATE_TODAY=$(date +%Y%M%D)
+DATE_TODAY=$(date +%Y%m%d)
 if [ -f ${PWD}/queues/${DATE_TODAY} ]; then
-    for url in $(cat ${PWD}/queues/${DATE_TODAY}) do
+    for url in $(cat ${PWD}/queues/${DATE_TODAY})
+    do
         echo $url
         docker run -it --rm -v ${PWD}/mp3:/workdir ytdlp-a3linux -x --audio-format mp3 "$url"
-        if [ $? -eq 0 ]
+        if [ $? -eq 0 ]; then
             echo "$url DONE" >> dl.mp3.${DATE_TODAY}.log
         else
             echo "$url FAILED" >> dl.mp3.${DATE_TODAY}.log
